@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils.module_loading import import_string
 
 from openedx_filters.exceptions import OpenEdxFilterException
+from openedx_filters.utils import FiltersLogStrategy
 
 log = getLogger(__name__)
 
@@ -190,7 +191,8 @@ class OpenEdxPublicFilter:
         information check their Github repository:
         https://github.com/python-social-auth/social-core
         """
-        pipeline, raise_exception, _ = cls.get_pipeline_configuration()
+        pipeline, raise_exception, log_level = cls.get_pipeline_configuration()
+        logStrategy = FiltersLogStrategy(log_level=log_level)
 
         if not pipeline:
             return kwargs
@@ -198,9 +200,22 @@ class OpenEdxPublicFilter:
         functions = cls.get_functions_for_pipeline(pipeline)
 
         accumulated_output = kwargs.copy()
+
+        logStrategy.collect_pipeline_context(
+            pipeline_steps=pipeline,
+            raise_exception=raise_exception,
+            initial_input=kwargs,
+        )
+
         for function in functions:
             try:
                 step_result = function(*args, **accumulated_output) or {}
+
+                logStrategy.collect_step_context(
+                    function.__name__,
+                    accumulated_output=accumulated_output,
+                    step_result=step_result,
+                )
 
                 if not isinstance(step_result, dict):
                     log.info(
@@ -210,6 +225,15 @@ class OpenEdxPublicFilter:
                     return step_result
                 accumulated_output.update(step_result)
             except OpenEdxFilterException as exception:
+                logStrategy.collect_step_context(
+                    function.__name__,
+                    accumulated_output=accumulated_output,
+                    step_exception=exception,
+                )
+                logStrategy.log(
+                    filter_type=cls.filter_type,
+                    current_configuration=pipeline,
+                )
                 if raise_exception:
                     log.exception(
                         "Exception raised while running '%s':\n %s", function.__name__, exception,
@@ -226,6 +250,16 @@ class OpenEdxPublicFilter:
                     exception,
                     "Continuing execution.",
                 )
+                logStrategy.collect_step_context(
+                    function.__name__,
+                    accumulated_output=accumulated_output,
+                    step_exception=exception,
+                )
                 continue
+
+        logStrategy.log(
+            filter_type=cls.filter_type,
+            current_configuration=pipeline,
+        )
 
         return accumulated_output

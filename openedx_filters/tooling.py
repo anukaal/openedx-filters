@@ -5,6 +5,7 @@ from logging import getLogger
 
 from django.conf import settings
 from django.utils.module_loading import import_string
+
 from openedx_filters.exceptions import OpenEdxFilterException
 
 log = getLogger(__name__)
@@ -99,7 +100,7 @@ class OpenEdxPublicFilter:
             pipeline, raise_exception, log_level = (
                 filter_config.get("pipeline", []),
                 not filter_config.get("fail_silently", True),
-                filter_config.get("log_level"),
+                filter_config.get("log_level", "info"),
             )
 
         elif isinstance(filter_config, list):

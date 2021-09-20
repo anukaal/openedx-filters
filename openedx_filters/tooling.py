@@ -3,6 +3,8 @@ Tooling necessary to use Open edX Filters.
 """
 from logging import getLogger
 
+from django.conf import settings
+from django.utils.module_loading import import_string
 from openedx_filters.exceptions import OpenEdxFilterException
 from openedx_filters.utils import get_functions_for_pipeline, get_pipeline_configuration
 
@@ -21,6 +23,134 @@ class OpenEdxPublicFilter:
         Represent OpenEdxPublicFilter as a string.
         """
         return "<OpenEdxPublicFilter: {filter_type}>".format(filter_type=self.filter_type)
+
+    @classmethod
+    def get_functions_for_pipeline(cls, pipeline):
+        """
+        Get function objects from paths.
+
+        Helper function that given a pipeline with functions paths gets
+        the objects related to each path.
+
+        Example usage:
+            functions = get_functions_for_pipeline(
+                [
+                    '1st_path_to_function',
+                    ...
+                ]
+            )
+            >>> functions
+            [
+                <function 1st_function at 0x00000000000>,
+                <function 2nd_function at 0x00000000001>,
+                ...
+            ]
+
+        Arguments:
+            pipeline (list): paths where functions are defined.
+
+        Returns:
+            function_list (list): function objects defined in pipeline.
+        """
+        function_list = []
+        for function_path in pipeline:
+            try:
+                function = import_string(function_path)
+                function_list.append(function)
+            except ImportError:
+                log.exception("Failed to import '%s'.", function_path)
+
+        return function_list
+
+    @classmethod
+    def get_pipeline_configuration(cls):
+        """
+        Get pipeline configuration from filter settings.
+
+        Helper function used to get the configuration needed to execute
+        the Pipeline Runner. It will take from the hooks configuration
+        the list of functions to execute and how to execute them.
+
+        Example usage:
+            pipeline_config = cls.get_pipeline_configuration()
+            >>> pipeline_config
+                (
+                    [
+                        'my_plugin.hooks.filters.test_function',
+                        'my_plugin.hooks.filters.test_function_2nd',
+                    ],
+                )
+
+        Returns:
+            pipeline (list): paths where functions for the pipeline are
+            defined.
+            raise_exception (bool): defines whether exceptions are raised while
+            executing the pipeline associated with a filter. It's determined by
+            fail_silently configuration, True meaning it won't raise exceptions and
+            False the opposite.
+        """
+        filter_config = cls.get_filter_config()
+
+        if not filter_config:
+            return [], False, "info"
+
+        pipeline, raise_exception, log_level = [], False, "info"
+
+        if isinstance(filter_config, dict):
+            pipeline, raise_exception, log_level = (
+                filter_config.get("pipeline", []),
+                not filter_config.get("fail_silently", True),
+                filter_config.get("log_level"),
+            )
+
+        elif isinstance(filter_config, list):
+            pipeline = filter_config
+
+        elif isinstance(filter_config, str):
+            pipeline.append(filter_config)
+
+        return pipeline, raise_exception, log_level
+
+    @classmethod
+    def get_filter_config(cls):
+        """
+        Get filters configuration from settings.
+
+        Helper function used to get configuration needed for using
+        Hooks Extension Framework.
+
+        Example usage:
+                configuration = get_filter_config('trigger')
+                >>> configuration
+                {
+                    'pipeline':
+                        [
+                            'my_plugin.hooks.filters.test_function',
+                            'my_plugin.hooks.filters.test_function_2nd',
+                        ],
+                    'fail_silently': False,
+                    'log_level': "debug"
+                }
+
+                Where:
+                    - pipeline (list): paths where the functions to be executed by
+                    the pipeline are defined.
+                    - fail_silently (bool): determines whether the pipeline can
+                    raise exceptions while executing. If its value is True then
+                    exceptions (OpenEdxFilterException) are caught and the execution
+                    continues, if False then exceptions are re-raised and the
+                    execution fails.
+
+        Arguments:
+            filter_name (str): determines which configuration to use.
+
+        Returns:
+            filters configuration (dict): taken from Django settings
+            containing filters configuration.
+        """
+        filters_config = getattr(settings, "OPEN_EDX_FILTERS_CONFIG", {})
+
+        return filters_config.get(cls.filter_type, {})
 
     @classmethod
     def run_pipeline(cls, *args, **kwargs):
@@ -60,7 +190,7 @@ class OpenEdxPublicFilter:
         information check their Github repository:
         https://github.com/python-social-auth/social-core
         """
-        pipeline, raise_exception = get_pipeline_configuration(cls.filter_type)
+        pipeline, raise_exception, _ = cls.get_pipeline_configuration()
 
         if not pipeline:
             return kwargs

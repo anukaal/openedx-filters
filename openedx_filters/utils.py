@@ -3,8 +3,7 @@ Utilities for Open edX Filters usage.
 """
 import logging
 import traceback
-
-from pprint import pformat, PrettyPrinter
+from pprint import PrettyPrinter, pformat
 
 LOG = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ class StepsContextPrettyPrinter(PrettyPrinter):
     This class pretty-prints the exceptions raised while executing filter functions.
     """
 
-    def _format(self, obj, stream, indent, allowance, context, level):  # pylint: disable=arguments-renamed
+    def _format(self, obj, stream, indent, allowance, context, level):  # pylint: disable=arguments-differ
         """
         Override format method exposing more information about exceptions.
 
@@ -94,12 +93,13 @@ class FiltersLogStrategy:
 
     def __init__(self, log_level):
         """
+        Init method for FiltersLogStrategy.
+
         Arguments:
             log_level (str): specifies which and how much information is logged.
 
         The available log levels are:
             - DEBUG
-            - PERFORMANCE
             - INFO
         """
         self.log_level = log_level
@@ -108,7 +108,7 @@ class FiltersLogStrategy:
 
     def log(self, **kwargs):
         """
-        Calls log method specified by log_level.
+        Call log method specified by log_level.
         """
         log_message = self.LOG_MESSAGES.get(self.log_level)
         log_args = (

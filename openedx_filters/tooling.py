@@ -192,7 +192,7 @@ class OpenEdxPublicFilter:
         https://github.com/python-social-auth/social-core
         """
         pipeline, raise_exception, log_level = cls.get_pipeline_configuration()
-        logStrategy = FiltersLogStrategy(log_level=log_level)
+        log_strategy = FiltersLogStrategy(log_level=log_level)
 
         if not pipeline:
             return kwargs
@@ -201,7 +201,7 @@ class OpenEdxPublicFilter:
 
         accumulated_output = kwargs.copy()
 
-        logStrategy.collect_pipeline_context(
+        log_strategy.collect_pipeline_context(
             pipeline_steps=pipeline,
             raise_exception=raise_exception,
             initial_input=kwargs,
@@ -211,7 +211,7 @@ class OpenEdxPublicFilter:
             try:
                 step_result = function(*args, **accumulated_output) or {}
 
-                logStrategy.collect_step_context(
+                log_strategy.collect_step_context(
                     function.__name__,
                     accumulated_output=accumulated_output,
                     step_result=step_result,
@@ -225,12 +225,12 @@ class OpenEdxPublicFilter:
                     return step_result
                 accumulated_output.update(step_result)
             except OpenEdxFilterException as exception:
-                logStrategy.collect_step_context(
+                log_strategy.collect_step_context(
                     function.__name__,
                     accumulated_output=accumulated_output,
                     step_exception=exception,
                 )
-                logStrategy.log(
+                log_strategy.log(
                     filter_type=cls.filter_type,
                     current_configuration=pipeline,
                 )
@@ -250,14 +250,14 @@ class OpenEdxPublicFilter:
                     exception,
                     "Continuing execution.",
                 )
-                logStrategy.collect_step_context(
+                log_strategy.collect_step_context(
                     function.__name__,
                     accumulated_output=accumulated_output,
                     step_exception=exception,
                 )
                 continue
 
-        logStrategy.log(
+        log_strategy.log(
             filter_type=cls.filter_type,
             current_configuration=pipeline,
         )

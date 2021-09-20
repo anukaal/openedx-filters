@@ -6,7 +6,6 @@ from logging import getLogger
 from django.conf import settings
 from django.utils.module_loading import import_string
 from openedx_filters.exceptions import OpenEdxFilterException
-from openedx_filters.utils import get_functions_for_pipeline, get_pipeline_configuration
 
 log = getLogger(__name__)
 
@@ -195,7 +194,7 @@ class OpenEdxPublicFilter:
         if not pipeline:
             return kwargs
 
-        functions = get_functions_for_pipeline(pipeline)
+        functions = cls.get_functions_for_pipeline(pipeline)
 
         accumulated_output = kwargs.copy()
         for function in functions:

@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 from django.test import TestCase
 
 from openedx_filters.exceptions import OpenEdxFilterException
-from openedx_filters.pipeline import run_pipeline
+from openedx_filters.tooling import OpenEdxPublicFilter
 
 
 class TestRunningPipeline(TestCase):
